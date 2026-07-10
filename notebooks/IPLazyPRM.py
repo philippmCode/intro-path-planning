@@ -9,6 +9,7 @@ from IPPRMBase import PRMBase
 from scipy.spatial import cKDTree
 import networkx as nx
 import random
+import time
 
 from IPPerfMonitor import IPPerfMonitor
 
@@ -21,6 +22,15 @@ class LazyPRM(PRMBase):
         self.lastGeneratedNodeNumber = 0
         self.collidingEdges = []
         self.nonCollidingEdges =[]
+
+        self.stats = {
+            "point_in_collision_calls": 0,
+            "line_in_collision_calls": 0,
+            "removed_colliding_nodes": 0,
+            "removed_colliding_edges": 0,
+            "confirmed_free_edges": 0,
+            "planning_time_seconds": 0.0
+        }
         
     @IPPerfMonitor
     def _buildRoadmap(self, numNodes, kNearest):
@@ -58,9 +68,11 @@ class LazyPRM(PRMBase):
     def _checkForCollisionAndUpdate(self,path):
         # first check all nodes
         for nodeNumber in path:
+            self.stats["point_in_collision_calls"] += 1
             if self._collisionChecker.pointInCollision(self.graph.nodes[nodeNumber]['pos']):
                 self.graph.remove_node(nodeNumber)
                 #print "Colliding Node"
+                self.stats["removed_colliding_nodes"] += 1
                 return True
         
         # check all path segments
@@ -68,14 +80,16 @@ class LazyPRM(PRMBase):
             #print elem
             x = elem[0]
             y = elem[1]
+            self.stats["line_in_collision_calls"] += 1
             if self._collisionChecker.lineInCollision(self.graph.nodes()[x]['pos'],self.graph.nodes()[y]['pos']):
                 self.graph.remove_edge(x,y)
                 self.collidingEdges.append((x,y))
+                self.stats["removed_colliding_edges"] += 1
                 return True
             else:
                 self.nonCollidingEdges.append((x,y))
-                                                                                          
-            
+                self.stats["confirmed_free_edges"] += 1
+                                                                            
         return False
         
     @IPPerfMonitor   
@@ -95,6 +109,19 @@ class LazyPRM(PRMBase):
             config["maxIterations"] = 40 # number of iterations trying to refine the roadmap
             
         """
+
+        start_time = time.time()
+
+        # Reset tracking stats for a fresh planning run
+        self.stats = {
+            "point_in_collision_calls": 0,
+            "line_in_collision_calls": 0,
+            "removed_colliding_nodes": 0,
+            "removed_colliding_edges": 0,
+            "confirmed_free_edges": 0,
+            "planning_time_seconds": 0.0
+        }
+
         # 0. reset
         self.graph.clear()
         self.lastGeneratedNodeNumber = 0
@@ -125,6 +152,10 @@ class LazyPRM(PRMBase):
                 #print "Found solution"
                 return path
             
+
+        end_time = time.time()
+        self.stats["planning_time_seconds"] = end_time - start_time
+
         return []
 
     

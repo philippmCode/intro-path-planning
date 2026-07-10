@@ -85,6 +85,29 @@ def lazyPRMVisualize(planner, solution = [] , ax=None, nodeSize = 300):
         nx.draw_networkx_edges(Gsp,pos,alpha=0.8,edge_color='g',width=10)
     
 
+    if hasattr(planner, 'stats'):
+        # Format the statistics vertically (alle untereinander)
+        stats_text = (
+            f"Collision Check Stats:\n"
+            f"Point Checks: {planner.stats.get('point_in_collision_calls', 0)}\n"
+            f"Line Checks: {planner.stats.get('line_in_collision_calls', 0)}\n"
+            f"Removed Nodes: {planner.stats.get('removed_colliding_nodes', 0)}\n"
+            f"Removed Edges: {planner.stats.get('removed_colliding_edges', 0)}\n"
+            f"Free Edges: {planner.stats.get('confirmed_free_edges', 0)}\n"
+            f"Planning Time: {planner.stats.get('planning_time_seconds', 0.0):.4f}s"
+        )
+        
+        # Place the text to the left of the axes
+        ax.text(-0.05, 0.5, stats_text, 
+                transform=ax.transAxes, 
+                fontsize=12,            
+                horizontalalignment='right',
+                verticalalignment='center',
+                multialignment='left',
+                bbox=dict(
+                    facecolor="white",
+                    edgecolor="none"
+                ))
     
     return
 
