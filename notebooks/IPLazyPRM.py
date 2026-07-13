@@ -12,10 +12,11 @@ import random
 import time
 
 from IPPerfMonitor import IPPerfMonitor
+from IPNodeSampling import UniformSampler
 
 class LazyPRM(PRMBase):
 
-    def __init__(self, _collChecker):
+    def __init__(self, _collChecker, enhancer=None):
         super(LazyPRM, self).__init__(_collChecker)
         
         self.graph = nx.Graph()
@@ -24,18 +25,19 @@ class LazyPRM(PRMBase):
         self.nonCollidingEdges =[]
         self.collidingNodes = []
 
+        self.enhancer = enhancer if enhancer is not None else UniformSampler()
+
         
     @IPPerfMonitor
-    def _buildRoadmap(self, numNodes, kNearest):
+    def _buildRoadmap(self, sampler, numNodes, kNearest):
         
         # generate #numNodes nodes
         addedNodes = []
-        for i in range(numNodes):
-            pos = self._getRandomPosition()
+        positions = sampler.enhance(self, numNodes)
+        for pos in positions:
             self.graph.add_node(self.lastGeneratedNodeNumber, pos=pos)
             addedNodes.append(self.lastGeneratedNodeNumber)
             self.lastGeneratedNodeNumber += 1
-
 
         # for every node in graph find nearest neigbhours
         posList = list(nx.get_node_attributes(self.graph,'pos').values())
@@ -111,15 +113,16 @@ class LazyPRM(PRMBase):
         self.graph.add_node("start", pos=checkedStartList[0])
         self.graph.add_node("goal", pos=checkedGoalList[0])
         
-        # 3. build initial roadmap
-        self._buildRoadmap(config["initialRoadmapSize"], config["kNearest"])
+        # 3. build initial roadmap, using the UniformSampler
+        uniformSampler = UniformSampler()
+        self._buildRoadmap(uniformSampler, config["initialRoadmapSize"], config["kNearest"])
         
         maxTry = 0
         while maxTry < config["maxIterations"]: 
             try:
                 path = nx.shortest_path(self.graph,"start","goal")
             except:
-                self._buildRoadmap(config["updateRoadmapSize"], config["kNearest"])
+                self._buildRoadmap(self.enhancer ,config["updateRoadmapSize"], config["kNearest"])
                 maxTry += 1
                 continue
               
