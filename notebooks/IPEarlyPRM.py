@@ -20,15 +20,7 @@ class EarlyPRM(PRMBase):
         self.lastGeneratedNodeNumber = 0
         self.collidingEdges = []
         self.nonCollidingEdges =[]
-
-        self.stats = {
-            "point_in_collision_calls": 0,
-            "line_in_collision_calls": 0,
-            "removed_colliding_nodes": 0,
-            "removed_colliding_edges": 0,
-            "confirmed_free_edges": 0,
-            "planning_time_seconds": 0.0
-        }
+        self.collidingNodes = []
         
     @IPPerfMonitor
     def _buildRoadmap(self, numNodes, kNearest):
@@ -44,8 +36,7 @@ class EarlyPRM(PRMBase):
                 addedNodes.append(self.lastGeneratedNodeNumber)
                 self.lastGeneratedNodeNumber += 1
             else:
-                self.stats["removed_colliding_nodes"] += 1
-                
+                self.collidingNodes.append(pos)
 
         # for every node in graph find nearest neigbhours
         posList = list(nx.get_node_attributes(self.graph,'pos').values())
@@ -70,7 +61,6 @@ class EarlyPRM(PRMBase):
     @IPPerfMonitor
     def _checkNodeForCollisionAndUpdate(self, pos):
 
-        self.stats["point_in_collision_calls"] += 1
         if self._collisionChecker.pointInCollision(pos):
             return True
             #print "Colliding Node"
@@ -84,15 +74,12 @@ class EarlyPRM(PRMBase):
             #print elem
             x = elem[0]
             y = elem[1]
-            self.stats["line_in_collision_calls"] += 1
             if self._collisionChecker.lineInCollision(self.graph.nodes()[x]['pos'],self.graph.nodes()[y]['pos']):
                 self.graph.remove_edge(x,y)
                 self.collidingEdges.append((x,y))
-                self.stats["removed_colliding_edges"] += 1
                 return True
             else:
                 self.nonCollidingEdges.append((x,y))
-                self.stats["confirmed_free_edges"] += 1
                                                                             
         return False
         
@@ -113,18 +100,6 @@ class EarlyPRM(PRMBase):
             config["maxIterations"] = 40 # number of iterations trying to refine the roadmap
             
         """
-
-        start_time = time.time()
-
-        # Reset tracking stats for a fresh planning run
-        self.stats = {
-            "point_in_collision_calls": 0,
-            "line_in_collision_calls": 0,
-            "removed_colliding_nodes": 0,
-            "removed_colliding_edges": 0,
-            "confirmed_free_edges": 0,
-            "planning_time_seconds": 0.0
-        }
 
         # 0. reset
         self.graph.clear()
@@ -156,9 +131,6 @@ class EarlyPRM(PRMBase):
                 #print "Found solution"
                 return path
             
-
-        end_time = time.time()
-        self.stats["planning_time_seconds"] = end_time - start_time
 
         return []
 

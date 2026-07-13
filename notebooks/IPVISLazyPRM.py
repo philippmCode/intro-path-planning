@@ -7,6 +7,7 @@ License is based on Creative Commons: Attribution-NonCommercial 4.0 Internationa
 """
 
 import networkx as nx
+from IPPerfMonitor import IPPerfMonitor
 
 
 def lazyPRMVisualize(planner, solution = [] , ax=None, nodeSize = 300):
@@ -14,6 +15,7 @@ def lazyPRMVisualize(planner, solution = [] , ax=None, nodeSize = 300):
     collChecker = planner._collisionChecker
     collEdges = planner.collidingEdges
     nonCollEdges = planner.nonCollidingEdges
+    collNodes = planner.collidingNodes
     # get a list of positions of all nodes by returning the content of the attribute 'pos'
     pos = nx.get_node_attributes(graph,'pos')
     color = nx.get_node_attributes(graph,'color')
@@ -85,29 +87,47 @@ def lazyPRMVisualize(planner, solution = [] , ax=None, nodeSize = 300):
         nx.draw_networkx_edges(Gsp,pos,alpha=0.8,edge_color='g',width=10)
     
 
-    if hasattr(planner, 'stats'):
-        # Format the statistics vertically (alle untereinander)
-        stats_text = (
-            f"Collision Check Stats:\n"
-            f"Point Checks: {planner.stats.get('point_in_collision_calls', 0)}\n"
-            f"Line Checks: {planner.stats.get('line_in_collision_calls', 0)}\n"
-            f"Removed Nodes: {planner.stats.get('removed_colliding_nodes', 0)}\n"
-            f"Removed Edges: {planner.stats.get('removed_colliding_edges', 0)}\n"
-            f"Free Edges: {planner.stats.get('confirmed_free_edges', 0)}\n"
-            f"Planning Time: {planner.stats.get('planning_time_seconds', 0.0):.4f}s"
-        )
+    try:
+        df = IPPerfMonitor.dataFrame()
         
-        # Place the text to the left of the axes
-        ax.text(-0.05, 0.5, stats_text, 
-                transform=ax.transAxes, 
-                fontsize=12,            
-                horizontalalignment='right',
-                verticalalignment='center',
-                multialignment='left',
-                bbox=dict(
-                    facecolor="white",
-                    edgecolor="none"
-                ))
+        # Count calls based on function names inside the data frame
+        point_checks = len(df[df['name'] == 'pointInCollision']) if not df.empty else 0
+        line_checks = len(df[df['name'] == 'lineInCollision']) if not df.empty else 0
+        
+        # Read the calculated planning time directly from the planPath execution entry
+        plan_path_row = df[df['name'] == 'planPath']
+        planning_time = plan_path_row['time'].values[0] if not plan_path_row.empty else 0.0
+    except Exception:
+        # Fallback values if the data frame is empty or not accessible
+        point_checks, line_checks, planning_time = 0, 0, 0.0
+
+    # Get counts of discarded nodes/edges from internal lists
+    removed_nodes = len(collNodes)
+    removed_edges = len(collEdges)
+    free_edges = len(nonCollEdges)
+
+    # Build the updated statistics block text
+    stats_text = (
+        f"Collision Check Stats (Monitor):\n"
+        f"Point Checks: {point_checks}\n"
+        f"Line Checks: {line_checks}\n"
+        f"Discarded Nodes: {removed_nodes}\n"
+        f"Removed Edges: {removed_edges}\n"
+        f"Free Edges: {free_edges}\n"
+        f"Planning Time: {planning_time:.4f}s"
+    )
+    
+    # Place the text box neatly next to the plot axes
+    ax.text(-0.05, 0.5, stats_text, 
+            transform=ax.transAxes, 
+            fontsize=12,            
+            horizontalalignment='right',
+            verticalalignment='center',
+            multialignment='left',
+            bbox=dict(
+                facecolor="white",
+                edgecolor="none"
+            ))
     
     return
 
