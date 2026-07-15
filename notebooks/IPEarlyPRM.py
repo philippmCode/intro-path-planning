@@ -28,7 +28,7 @@ class EarlyPRM(AbstractGraphPRM):
         for i in range(numNodes):
             pos = self._getRandomPosition()
 
-            if not self._checkNodeForCollisionAndUpdate(pos):
+            if not self._checkNodeForCollision(pos):
                 self.graph.add_node(self.lastGeneratedNodeNumber, pos=pos)
                 addedNodes.append(self.lastGeneratedNodeNumber)
                 self.lastGeneratedNodeNumber += 1
@@ -39,7 +39,7 @@ class EarlyPRM(AbstractGraphPRM):
 
 
     @IPPerfMonitor
-    def _checkNodeForCollisionAndUpdate(self, pos):
+    def _checkNodeForCollision(self, pos):
 
         if self._collisionChecker.pointInCollision(pos):
             return True

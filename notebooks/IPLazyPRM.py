@@ -35,12 +35,16 @@ class LazyPRM(AbstractGraphPRM):
         
         self._connect_nearest_neighbors(addedNodes, kNearest)
 
+    @IPPerfMonitor
+    def _checkNodeForCollision(self, nodeNumber):
+        return self._collisionChecker.pointInCollision(self.graph.nodes[nodeNumber]['pos'])
+
     
     @IPPerfMonitor
     def _checkForCollisionAndUpdate(self,path):
         # first check all nodes
         for nodeNumber in path:
-            if self._collisionChecker.pointInCollision(self.graph.nodes[nodeNumber]['pos']):
+            if self._checkNodeForCollision(nodeNumber):
                 self.collidingNodes.append(self.graph.nodes[nodeNumber]['pos'])
                 self.graph.remove_node(nodeNumber)
                 #print "Colliding Node"
