@@ -18,6 +18,7 @@ class LazyPRM(AbstractGraphPRM):
 
     def __init__(self, _collChecker, enhancer=None):
         super(LazyPRM, self).__init__(_collChecker)
+        self.enhancer = enhancer if enhancer is not None else UniformSampler()
     
 
         

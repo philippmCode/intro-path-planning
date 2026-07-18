@@ -117,7 +117,6 @@ class AbstractGraphPRM(PRMBase):
             if self._lazyCollisionCheck(path):
                 continue
             else:
-                #print "Found solution"
                 return path
             
 
