@@ -26,7 +26,7 @@ class PathLocalSampler:
     Includes a history log for visualization.
     """
 
-    def __init__(self, sigma=8.0):
+    def __init__(self, sigma=3.5):
         self.sigma = sigma
         self.history = [] 
 
