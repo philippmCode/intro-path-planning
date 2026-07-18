@@ -130,3 +130,23 @@ nestedTrapField["inner_C"] = LineString([(8, 16), (14, 16), (14, 8), (8, 8)]).bu
 description_nested = "A complex trap setup forcing massive backtracking. Especially hard for potential fields and bug algorithms."
 # Start inside the inner trap, goal completely outside on the bottom right
 benchList.append(Benchmark("Nested Trap", CollisionChecker(nestedTrapField), [[11, 12]], [[22, 2]], description_nested, 2))
+
+
+# ---------------------------------------------------------
+# Giant Square Field
+giantSquareField = dict()
+
+# Define a large square obstacle in the middle of the field
+giantSquareField["giant_square"] = Polygon([(3, 21), (21, 21), (21, 3), (3, 3)])
+
+description_square = "Tests the ability of the planner to navigate around a single massive obstacle in the center."
+
+# Start is at the top left, goal is at the bottom right
+benchList.append(Benchmark(
+    "Giant Square", 
+    CollisionChecker(giantSquareField), 
+    [[2, 22]], 
+    [[22, 2]], 
+    description_square, 
+    2
+))
