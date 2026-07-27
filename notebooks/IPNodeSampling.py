@@ -70,3 +70,59 @@ class PathLocalSampler:
         self.history.append({'segment': collision_segment, 'nodes': positions})
         
         return positions
+
+
+class BridgeSampler:
+    """
+    Implements Bridge Sampling to find nodes in narrow passages.
+    Generates a point in an obstacle, takes a Gaussian step to find a second point
+    in an obstacle, and checks if the midpoint between them is collision-free.
+    Includes a history log for visualization.
+    """
+
+    def __init__(self, sigma=2.0, max_attempts_per_node=150):
+        self.sigma = sigma
+        self.max_attempts = max_attempts_per_node
+        self.history = []
+
+    def enhance(self, prm, numNodes, collision_segment=None):
+        positions = []
+        anchors = [] # <-- NEU: Speichert (p1, p2) für die Brücke
+        
+        for _ in range(numNodes):
+            found_bridge = False
+            
+            for _ in range(self.max_attempts):
+                # 1. Sample p1 uniform
+                p1 = prm._getRandomPosition()
+                
+                # 2. Prüfe, ob p1 im Hindernis liegt
+                if prm._collisionChecker.pointInCollision(p1):
+                    # 3. Sample p2 mit Gauß-Verteilung um p1
+                    p2 = [c + random.gauss(0, self.sigma) for c in p1]
+                    
+                    # 4. Prüfe, ob p2 ebenfalls im Hindernis liegt
+                    if prm._collisionChecker.pointInCollision(p2):
+                        # 5. Berechne den Mittelpunkt pm
+                        pm = [(c1 + c2) / 2.0 for c1, c2 in zip(p1, p2)]
+                        
+                        # 6. Prüfe, ob der Mittelpunkt frei ist
+                        if not prm._collisionChecker.pointInCollision(pm):
+                            positions.append(pm)
+                            anchors.append((p1, p2)) # <-- NEU: Ankerpunkte speichern
+                            found_bridge = True
+                            break
+            
+            # Fallback
+            if not found_bridge:
+                positions.append(prm._getRandomPosition())
+                anchors.append(None) # Kein Anker für uniforme Punkte
+
+        # Speichere die Ankerpunkte in der History
+        self.history.append({
+            'segment': collision_segment, 
+            'nodes': positions,
+            'bridge_anchors': anchors # <-- NEU
+        })
+        
+        return positions
