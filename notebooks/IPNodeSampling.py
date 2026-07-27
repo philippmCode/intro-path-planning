@@ -19,7 +19,7 @@ class UniformSampler:
         return positions
 
 
-class PathLocalSampler:
+class CollidingEdgeSampler:
     """
     Samples new nodes near the last colliding edge to improve the
     probability of finding a path around an obstacle.
