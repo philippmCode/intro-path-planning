@@ -8,7 +8,7 @@
 
 ## OVERVIEW
 
-This document provides a detailed analysis of what has been implemented and what needs to be completed or improved for tasks 1-4 of the Lazy-PRM Extension project. The notebook is being used as a technical report combining methodology, code, experiments, visualizations, results, and discussion.
+This document provides a detailed analysis of what has been implemented and what needs to be completed or improved of the Lazy-PRM Extension project. The notebook is being used as a technical report combining methodology, code, experiments, visualizations, results, and discussion.
 
 ---
 
@@ -506,81 +506,6 @@ This document provides a detailed analysis of what has been implemented and what
 - Create summary visualization
 - Add interpretive annotations
 
----
-
-## CROSS-CUTTING IMPROVEMENTS
-
-### Code Organization
-**Current State:** Code in modules, notebook executes them  
-**Improvements Needed:**
-- [ ] Ensure all modules are in `notebooks/` directory
-- [ ] Add docstrings to all classes and methods
-- [ ] Ensure consistent naming conventions (English)
-- [ ] Add type hints for better clarity
-- [ ] Include usage examples in docstrings
-- [ ] Create helper functions for common operations
-- [ ] Organize imports logically
-
-**Suggestions:**
-- Consolidate utility functions
-- Create visualization helper module
-- Standardize exception handling
-- Add logging statements
-
-### Documentation
-**Current State:** Some code comments, partial docstrings  
-**Improvements Needed:**
-- [ ] Complete module-level docstrings
-- [ ] Document all parameters with types and defaults
-- [ ] Add return value documentation
-- [ ] Include algorithm complexity analysis
-- [ ] Add references to papers/slides
-- [ ] Create ASCII diagrams for algorithms
-- [ ] Document assumptions and limitations
-
-### Language Consistency
-**Critical Issue:** Mixed German/English  
-**Required Actions:**
-- [ ] Audit all comments in code files
-- [ ] Convert German comments to English
-- [ ] Audit notebook markdown cells
-- [ ] Convert all German text to English
-- [ ] Update variable names if in German
-- [ ] Update section headers
-- [ ] Check IPVISLazyPRM comments
-
-**Affected Files:**
-- `Abgabe.ipynb` (primary)
-- `IPLazyPRM.py`
-- `AbstractGraphPRM.py`
-- `IPVISLazyPRM.py`
-- All visualization functions
-
-### Notebook Structure
-**Current:** Linear with some organization  
-**Improvements:**
-- [ ] Add table of contents (with links)
-- [ ] Use consistent heading hierarchy
-- [ ] Add section summaries
-- [ ] Include key takeaway boxes
-- [ ] Create clear transitions between sections
-- [ ] Add progress indicators
-- [ ] Separate explanation from code
-- [ ] Add "What we learned" sections
-
-### Test Coverage
-**Current:** Limited testing  
-**Improvements:**
-- [ ] Create test suite for LazyPRM
-- [ ] Create test suite for EarlyPRM
-- [ ] Edge case handling tests
-- [ ] Performance baseline tests
-- [ ] Documentation of test results
-- [ ] Reproducibility checks
-
----
-
-## OPTIONAL ENHANCEMENTS (For Advanced Work)
 
 ### Task 5: Node Enhancement Strategies (Beyond Requirements)
 **Status:** PathLocalSampler exists but not evaluated
@@ -764,14 +689,16 @@ This document provides a detailed analysis of what has been implemented and what
 
 ## TASK 8: BENCHMARKING WITH 2-DOF POINT ROBOTS
 
-### Current Status: ⚠️ PARTIALLY SUPPORTED
-- `IP-X-1-Automated_PlanerTest.ipynb` already contains benchmark execution code.
-- No dedicated 30-run benchmarking with 2-DoF point robots exists.
+### Current Status: ✅ IMPLEMENTED
+- Implemented two enhancement strategies in `notebooks/IPNodeSampling.py`: `PathLocalSampler` (colliding edge sampling) and `BridgeSampler` (bridge sampling).
+- Added Task 8 benchmark design and execution in `notebooks/IP-X-1-Automated_PlanerTest.ipynb`.
+- Selected three benchmarks for repeated evaluation: `Empty Field`, `Bottleneck`, and `Nested Trap`.
+- Added a Task 8 benchmark section to `notebooks/Abgabe.ipynb` with statistical summary and plots.
+- Added a Task 8 plan note to `notebooks/IP-X-0-Benchmarking-concept.ipynb`.
 
-### Required Implementation
-- Evaluate variants on at least **three 2-DoF benchmarks of different difficulty**.
-- Execute **multiple planning runs per benchmark**, ideally 30 or more.
-- Record specified metrics.
+### Remaining Work
+- Run the notebook to generate `task8_benchmark_results.csv` and verify the plotted results.
+- Optionally refine the Abgabe report with final selected interpretation text based on the actual results.
 
 ### Files to Update
 - `notebooks/Abgabe.ipynb`
@@ -1019,6 +946,22 @@ Keep the notebook as a technical report:
 - Planner comparison section
 - Statistical evaluation tables and plots
 - Final discussion and conclusion
+
+---
+
+## CROSS-CUTTING IMPROVEMENTS
+
+### Notebook Structure
+**Current:** Linear with some organization  
+**Improvements:**
+- [ ] Add table of contents (with links)
+- [ ] Use consistent heading hierarchy
+- [ ] Add section summaries
+- [ ] Include key takeaway boxes
+- [ ] Create clear transitions between sections
+- [ ] Add progress indicators
+- [ ] Separate explanation from code
+- [ ] Add "What we learned" sections
 
 ---
 

@@ -14,17 +14,16 @@ from IPPerfMonitor import IPPerfMonitor
 from IPNodeSampling import UniformSampler
 from AbstractGraphPRM import AbstractGraphPRM
 
+
 class LazyPRM(AbstractGraphPRM):
 
     def __init__(self, _collChecker, enhancer=None):
         super(LazyPRM, self).__init__(_collChecker)
         self.enhancer = enhancer if enhancer is not None else UniformSampler()
-    
 
-        
     @IPPerfMonitor
     def _buildRoadmap(self, sampler, numNodes, kNearest):
-        
+
         # generate #numNodes nodes
         addedNodes = []
         positions = sampler.enhance(self, numNodes)
@@ -33,26 +32,24 @@ class LazyPRM(AbstractGraphPRM):
             addedNodes.append(self.lastGeneratedNodeNumber)
             self.lastGeneratedNodeNumber += 1
 
-        
         self._connect_nearest_neighbors(addedNodes, kNearest)
+        return len(addedNodes)
 
     @IPPerfMonitor
     def _checkNodeForCollision(self, nodeNumber):
         return self._collisionChecker.pointInCollision(self.graph.nodes[nodeNumber]['pos'])
 
-    
     @IPPerfMonitor
-    def _checkForCollisionAndUpdate(self,path):
+    def _checkForCollisionAndUpdate(self, path):
         # first check all nodes
         for nodeNumber in path:
             if self._checkNodeForCollision(nodeNumber):
                 self.collidingNodes.append(self.graph.nodes[nodeNumber]['pos'])
                 self.graph.remove_node(nodeNumber)
-                #print "Colliding Node"
+                # print "Colliding Node"
                 return True
-                                                                            
+
         return self._checkPathSegmentsForCollision(path)
-    
 
     def _lazyCollisionCheck(self, path):
         """
@@ -60,5 +57,3 @@ class LazyPRM(AbstractGraphPRM):
         Returns True if a collision is found, False otherwise.
         """
         return self._checkForCollisionAndUpdate(path)
-
-    

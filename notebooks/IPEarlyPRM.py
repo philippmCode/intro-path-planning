@@ -13,21 +13,20 @@ from AbstractGraphPRM import AbstractGraphPRM
 
 from IPPerfMonitor import IPPerfMonitor
 
+
 class EarlyPRM(AbstractGraphPRM):
 
-    def __init__(self, _collChecker):
-        super(EarlyPRM, self).__init__(_collChecker)
-        
-        
+    def __init__(self, _collChecker, enhancer=None):
+        super(EarlyPRM, self).__init__(_collChecker, enhancer=enhancer)
+
     @IPPerfMonitor
     def _buildRoadmap(self, sampler, numNodes, kNearest):
-        
-        # generate #numNodes nodes
+
+        # generate #numNodes candidate positions using the sampler
         addedNodes = []
+        positions = sampler.enhance(self, numNodes)
 
-        for i in range(numNodes):
-            pos = self._getRandomPosition()
-
+        for pos in positions:
             if not self._checkNodeForCollision(pos):
                 self.graph.add_node(self.lastGeneratedNodeNumber, pos=pos)
                 addedNodes.append(self.lastGeneratedNodeNumber)
@@ -36,7 +35,7 @@ class EarlyPRM(AbstractGraphPRM):
                 self.collidingNodes.append(pos)
 
         self._connect_nearest_neighbors(addedNodes, kNearest)
-
+        return len(addedNodes)
 
     @IPPerfMonitor
     def _checkNodeForCollision(self, pos):
@@ -45,6 +44,12 @@ class EarlyPRM(AbstractGraphPRM):
             return True
         return False
 
+    @IPPerfMonitor
+    def _checkNodeForCollision(self, pos):
+
+        if self._collisionChecker.pointInCollision(pos):
+            return True
+        return False
 
     def _lazyCollisionCheck(self, path):
         """
@@ -52,4 +57,3 @@ class EarlyPRM(AbstractGraphPRM):
         Returns True if a collision is found, False otherwise.
         """
         return self._checkPathSegmentsForCollision(path)
-    
