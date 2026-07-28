@@ -1,6 +1,7 @@
 from IPPRMBase import PRMBase
 from scipy.spatial import cKDTree
 import networkx as nx
+import time
 
 from IPPerfMonitor import IPPerfMonitor
 from IPNodeSampling import UniformSampler
@@ -77,19 +78,16 @@ class AbstractGraphPRM(PRMBase):
     @IPPerfMonitor
     def planPath(self, startList, goalList, config):
         """
-
         Args:
             startList (array): start position in planning space
             goalList (array) : goal position in planning space
             config (dict): dictionary with the needed information about the configuration options
 
         Example:
-
             config["initialRoadmapSize"] = 40 # number of nodes of first roadmap
             config["updateRoadmapSize"]  = 20 # number of nodes to add if there is no connection from start to end
             config["kNearest"] = 5 # number of nodes to connect to during setup
-            config["maxIterations"] = 40 # number of iterations trying to refine the roadmap
-
+            config["maxTime"] = 5.0 #  maximum planning time in seconds
         """
 
         # 0. reset
@@ -115,16 +113,18 @@ class AbstractGraphPRM(PRMBase):
         self._buildRoadmap(
             uniformSampler, config["initialRoadmapSize"], config["kNearest"])
 
-        maxTry = 0
-        while maxTry < config["maxIterations"]:
+        # time based termination condition
+        start_time = time.time()
+        max_time = config.get("maxTime", 5.0)  # Standardmäßig 5 Sekunden, falls nicht in config gesetzt
+
+        while (time.time() - start_time) < max_time:
             try:
                 path = nx.shortest_path(self.graph, "start", "goal")
-            except:
+            except nx.NetworkXNoPath:
                 added_nodes = self._buildRoadmap(
                     self.enhancer, config["updateRoadmapSize"], config["kNearest"])
                 self.enhancementRounds += 1
                 self.enhancementNodesAdded += added_nodes
-                maxTry += 1
                 continue
 
             if self._lazyCollisionCheck(path):

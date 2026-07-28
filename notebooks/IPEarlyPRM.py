@@ -10,7 +10,6 @@ import random
 import time
 
 from AbstractGraphPRM import AbstractGraphPRM
-
 from IPPerfMonitor import IPPerfMonitor
 
 
@@ -22,31 +21,34 @@ class EarlyPRM(AbstractGraphPRM):
     @IPPerfMonitor
     def _buildRoadmap(self, sampler, numNodes, kNearest):
 
-        # generate #numNodes candidate positions using the sampler
         addedNodes = []
-        positions = sampler.enhance(self, numNodes)
+        max_attempts = numNodes * 100  # Failsafe against infinite loops
+        attempts = 0
 
-        for pos in positions:
-            if not self._checkNodeForCollision(pos):
-                self.graph.add_node(self.lastGeneratedNodeNumber, pos=pos)
-                addedNodes.append(self.lastGeneratedNodeNumber)
-                self.lastGeneratedNodeNumber += 1
-            else:
-                self.collidingNodes.append(pos)
+        # While-Schleife: Samplen bis die geforderte Anzahl freier Knoten erreicht ist
+        while len(addedNodes) < numNodes and attempts < max_attempts:
+            # Fordere nur so viele neue Samples an, wie noch fehlen
+            needed_nodes = numNodes - len(addedNodes)
+            positions = sampler.enhance(self, needed_nodes)
+
+            for pos in positions:
+                attempts += 1
+                if not self._checkNodeForCollision(pos):
+                    self.graph.add_node(self.lastGeneratedNodeNumber, pos=pos)
+                    addedNodes.append(self.lastGeneratedNodeNumber)
+                    self.lastGeneratedNodeNumber += 1
+                    
+                    # Abbrechen, wenn wir innerhalb der for-Schleife das Ziel erreichen
+                    if len(addedNodes) == numNodes:
+                        break
+                else:
+                    self.collidingNodes.append(pos)
 
         self._connect_nearest_neighbors(addedNodes, kNearest)
         return len(addedNodes)
 
     @IPPerfMonitor
     def _checkNodeForCollision(self, pos):
-
-        if self._collisionChecker.pointInCollision(pos):
-            return True
-        return False
-
-    @IPPerfMonitor
-    def _checkNodeForCollision(self, pos):
-
         if self._collisionChecker.pointInCollision(pos):
             return True
         return False
