@@ -2,6 +2,7 @@ from IPPRMBase import PRMBase
 from scipy.spatial import cKDTree
 import networkx as nx
 import time
+import numpy as np
 
 from IPPerfMonitor import IPPerfMonitor
 from IPNodeSampling import UniformSampler
@@ -29,22 +30,26 @@ class AbstractGraphPRM(PRMBase):
         This logic is shared between EarlyPRM and LazyPRM.
         """
         # Get all positions currently in the graph
-        posList = list(nx.get_node_attributes(self.graph, 'pos').values())
+        node_ids = list(self.graph.nodes)
+        posList = [self.graph.nodes[node]['pos'] for node in node_ids]
 
         # Safeguard: If the graph is empty, there is nothing to connect
         if not posList:
             return
 
-        kdTree = cKDTree(posList)
+        positions = np.asarray(posList, dtype=float)
+        if positions.ndim != 2 or positions.shape[1] != self._collisionChecker.getDim():
+            raise ValueError("Roadmap contains configurations with inconsistent dimensions.")
+        kdTree = cKDTree(positions)
 
         # Iterate over only the newly added nodes
         for node in addedNodes:
             # Find set of candidates to connect to sorted by distance
-            result = kdTree.query(self.graph.nodes[node]['pos'], k=kNearest)
-            for data in result[1]:
-                # Find the corresponding node ID in the graph
-                c_node = [x for x, y in self.graph.nodes(
-                    data=True) if (y['pos'] == posList[data])][0]
+            neighbor_count = min(kNearest, len(node_ids))
+            result = kdTree.query(self.graph.nodes[node]['pos'], k=neighbor_count)
+            for data in np.atleast_1d(result[1]):
+                # KD-tree indices use the same order as ``node_ids``.
+                c_node = node_ids[int(data)]
 
                 # Connect if it's not the same node and the edge is not known to collide
                 if node != c_node:

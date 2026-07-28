@@ -740,7 +740,6 @@ This document provides a detailed analysis of what has been implemented and what
 - Add at least **two PlanarManipulator benchmarks**:
   - one 2-DoF benchmark
   - one 4-DoF benchmark
-- For a 3-person scope, add a **6-DoF benchmark**.
 - Provide animations of robot motion before and after planning.
 
 ### Files to Update
@@ -750,7 +749,7 @@ This document provides a detailed analysis of what has been implemented and what
 - `notebooks/IP-10-0-PlanarManipulator.ipynb`
   - Add the benchmark definitions and move planning code into reusable functions.
 - `notebooks/IPEnvironmentKin.py`
-  - Validate that the `KinChainCollisionChecker` works for 2, 4, and 6 DoF.
+  - Validate that the `KinChainCollisionChecker` works for 2 and 4 DoF.
   - If needed, fix the `lineInCollision` and `segmentInCollision` methods.
 
 ### Visualization Requirements

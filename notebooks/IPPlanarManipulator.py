@@ -41,13 +41,24 @@ class PlanarRobot:
             self.Ms.append(self.Ms[-1] * joint.M)
 
     def get_transforms(self):
-        ts = []
-        sub = {}
+        """Return joint positions using numeric forward kinematics.
+
+        Keeping the symbolic matrices is useful for the accompanying
+        worksheet, but substituting them for every collision query made the
+        4-DoF benchmark unnecessarily slow.  Cumulative joint angles give
+        exactly the same planar forward kinematics at a fraction of the cost.
+        """
+        positions = [np.array([0.0, 0.0], dtype=np.float32)]
+        angle = 0.0
+        position = np.array([0.0, 0.0], dtype=np.float32)
         for joint in self.joints:
-            sub = {**sub, **joint.get_subs()}
-        for M in self.Ms:
-            ts.append(np.squeeze(np.array(M.subs(sub) * sp.Matrix([0, 0, 1]))).astype(np.float32)[:2])
-        return ts
+            angle += float(joint.theta)
+            position = position + np.array(
+                [joint.a * np.cos(angle), joint.a * np.sin(angle)],
+                dtype=np.float32,
+            )
+            positions.append(position.copy())
+        return positions
 
     def move(self, new_thetas):
         assert len(new_thetas) == len(self.joints)

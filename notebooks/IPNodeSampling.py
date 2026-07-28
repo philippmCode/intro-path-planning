@@ -24,11 +24,12 @@ class PathLocalSampler:
     Samples new nodes near the last colliding edge to improve the
     probability of finding a path around an obstacle.
     Includes a history log for visualization.
+    This corresponds to the colliding edge sampling strategy.
     """
 
     def __init__(self, sigma=3.5):
         self.sigma = sigma
-        self.history = [] 
+        self.history = []
 
     def enhance(self, prm, numNodes, collision_segment=None):
         positions = []
@@ -44,7 +45,7 @@ class PathLocalSampler:
         if collision_segment is None:
             for _ in range(numNodes):
                 positions.append(prm._getRandomPosition())
-            
+
             # Log uniform generation (no segment)
             self.history.append({'segment': None, 'nodes': positions})
             return positions
@@ -54,9 +55,12 @@ class PathLocalSampler:
         for _ in range(numNodes):
             # 1. Interpolate a random point along the colliding edge
             t = random.random()
+            # Work in the complete configuration space.  The previous
+            # implementation only used coordinates 0 and 1, which produced
+            # malformed samples as soon as this sampler was used for a
+            # manipulator with more than two joints.
             interp_pos = [
-                pos_a[0] + t * (pos_b[0] - pos_a[0]),
-                pos_a[1] + t * (pos_b[1] - pos_a[1]),
+                a + t * (b - a) for a, b in zip(pos_a, pos_b)
             ]
 
             # 2. Add Gaussian noise
@@ -68,7 +72,7 @@ class PathLocalSampler:
 
         # NEW: Log the segment and generated positions for the benchmark slider
         self.history.append({'segment': collision_segment, 'nodes': positions})
-        
+
         return positions
 
 
@@ -87,42 +91,43 @@ class BridgeSampler:
 
     def enhance(self, prm, numNodes, collision_segment=None):
         positions = []
-        anchors = [] # <-- NEU: Speichert (p1, p2) für die Brücke
-        
+        anchors = []  # <-- NEU: Speichert (p1, p2) für die Brücke
+
         for _ in range(numNodes):
             found_bridge = False
-            
+
             for _ in range(self.max_attempts):
                 # 1. Sample p1 uniform
                 p1 = prm._getRandomPosition()
-                
+
                 # 2. Prüfe, ob p1 im Hindernis liegt
                 if prm._collisionChecker.pointInCollision(p1):
                     # 3. Sample p2 mit Gauß-Verteilung um p1
                     p2 = [c + random.gauss(0, self.sigma) for c in p1]
-                    
+
                     # 4. Prüfe, ob p2 ebenfalls im Hindernis liegt
                     if prm._collisionChecker.pointInCollision(p2):
                         # 5. Berechne den Mittelpunkt pm
                         pm = [(c1 + c2) / 2.0 for c1, c2 in zip(p1, p2)]
-                        
+
                         # 6. Prüfe, ob der Mittelpunkt frei ist
                         if not prm._collisionChecker.pointInCollision(pm):
                             positions.append(pm)
-                            anchors.append((p1, p2)) # <-- NEU: Ankerpunkte speichern
+                            # <-- NEU: Ankerpunkte speichern
+                            anchors.append((p1, p2))
                             found_bridge = True
                             break
-            
+
             # Fallback
             if not found_bridge:
                 positions.append(prm._getRandomPosition())
-                anchors.append(None) # Kein Anker für uniforme Punkte
+                anchors.append(None)  # Kein Anker für uniforme Punkte
 
         # Speichere die Ankerpunkte in der History
         self.history.append({
-            'segment': collision_segment, 
+            'segment': collision_segment,
             'nodes': positions,
-            'bridge_anchors': anchors # <-- NEU
+            'bridge_anchors': anchors  # <-- NEU
         })
-        
+
         return positions
