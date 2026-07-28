@@ -2,6 +2,16 @@
 import random
 
 
+def _is_in_limits(prm, pos):
+    """Return whether a sample belongs to the planner's configuration domain.
+
+    ``pointInCollision`` deliberately reports points outside the environment as
+    invalid. Sampling strategies must distinguish an actual obstacle from the
+    artificial boundary of the configuration domain.
+    """
+    return prm._collisionChecker.isInLimits(pos)
+
+
 class UniformSampler:
     """
     Implements standard uniform sampling.
@@ -23,12 +33,14 @@ class PathLocalSampler:
     """
     Samples new nodes near the last colliding edge to improve the
     probability of finding a path around an obstacle.
+    Samples are rejected when they lie outside the configuration domain.
     Includes a history log for visualization.
     This corresponds to the colliding edge sampling strategy.
     """
 
-    def __init__(self, sigma=3.5):
+    def __init__(self, sigma=3.5, max_attempts_per_node=30):
         self.sigma = sigma
+        self.max_attempts = max_attempts_per_node
         self.history = []
 
     def enhance(self, prm, numNodes, collision_segment=None):
@@ -53,22 +65,22 @@ class PathLocalSampler:
         pos_a, pos_b = collision_segment
 
         for _ in range(numNodes):
-            # 1. Interpolate a random point along the colliding edge
-            t = random.random()
-            # Work in the complete configuration space.  The previous
-            # implementation only used coordinates 0 and 1, which produced
-            # malformed samples as soon as this sampler was used for a
-            # manipulator with more than two joints.
-            interp_pos = [
-                a + t * (b - a) for a, b in zip(pos_a, pos_b)
-            ]
-
-            # 2. Add Gaussian noise
-            final_pos = [
-                coord + random.gauss(0, self.sigma)
-                for coord in interp_pos
-            ]
-            positions.append(final_pos)
+            # Gaussian local sampling has unbounded support. Reject outside
+            # samples rather than adding invalid roadmap nodes; clamping
+            # would incorrectly concentrate samples on the map boundary.
+            for _ in range(self.max_attempts):
+                t = random.random()
+                # Work in the complete configuration space. The previous
+                # implementation only used coordinates 0 and 1, which
+                # produced malformed samples for manipulators with >2 DoF.
+                interp_pos = [a + t * (b - a) for a, b in zip(pos_a, pos_b)]
+                final_pos = [coord + random.gauss(0, self.sigma) for coord in interp_pos]
+                if _is_in_limits(prm, final_pos):
+                    positions.append(final_pos)
+                    break
+            else:
+                # Valid fallback prevents an unbounded retry loop.
+                positions.append(prm._getRandomPosition())
 
         # NEW: Log the segment and generated positions for the benchmark slider
         self.history.append({'segment': collision_segment, 'nodes': positions})
@@ -79,8 +91,10 @@ class PathLocalSampler:
 class BridgeSampler:
     """
     Implements Bridge Sampling to find nodes in narrow passages.
-    Generates a point in an obstacle, takes a Gaussian step to find a second point
-    in an obstacle, and checks if the midpoint between them is collision-free.
+    Generates a point in an obstacle, takes a Gaussian step to find a second
+    in-domain point in an obstacle, and checks whether the midpoint is free.
+    Points outside the configuration domain are invalid, but are not treated as
+    obstacle samples for the bridge test.
     Includes a history log for visualization.
     """
 
@@ -106,12 +120,17 @@ class BridgeSampler:
                     p2 = [c + random.gauss(0, self.sigma) for c in p1]
 
                     # 4. Prüfe, ob p2 ebenfalls im Hindernis liegt
-                    if prm._collisionChecker.pointInCollision(p2):
+                    # Outside points are invalid configurations, not obstacle
+                    # samples.  Treating them as obstacles creates false
+                    # bridges between the map boundary and a real obstacle.
+                    if (_is_in_limits(prm, p2)
+                            and prm._collisionChecker.pointInCollision(p2)):
                         # 5. Berechne den Mittelpunkt pm
                         pm = [(c1 + c2) / 2.0 for c1, c2 in zip(p1, p2)]
 
                         # 6. Prüfe, ob der Mittelpunkt frei ist
-                        if not prm._collisionChecker.pointInCollision(pm):
+                        if (_is_in_limits(prm, pm)
+                                and not prm._collisionChecker.pointInCollision(pm)):
                             positions.append(pm)
                             # <-- NEU: Ankerpunkte speichern
                             anchors.append((p1, p2))
