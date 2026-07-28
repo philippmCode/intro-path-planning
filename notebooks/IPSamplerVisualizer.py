@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.lines as mlines
+import ipywidgets as widgets
+from IPython.display import display
 
 class SamplerVisualizer:
     def __init__(self, x_lim=(0, 25), y_lim=(0, 25)):
@@ -9,7 +11,7 @@ class SamplerVisualizer:
 
     def plot_sampling(self, current_nodes, current_segment=None, past_history=None, 
                       checker=None, free_segments=None, title="Sampler Visualization",
-                      current_anchors=None): # <-- NEU: Argument hinzugefügt
+                      current_anchors=None):
         
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.set_xlim(self.x_lim)
@@ -75,7 +77,7 @@ class SamplerVisualizer:
         # Build legend
         handles, labels = ax.get_legend_handles_labels()
         
-        obs_patch = patches.Patch(color='dimgray', alpha=0.4, label='Obstacle')
+        obs_patch = patches.Patch(color='red', alpha=0.4, label='Obstacle')
         free_line = mlines.Line2D([], [], color='gold', linewidth=1.5, label='Free Segments')
         handles.extend([obs_patch, free_line])
         labels.extend(['Obstacle', 'Free Segments'])
@@ -84,7 +86,7 @@ class SamplerVisualizer:
             hist_edge = mlines.Line2D([], [], color='salmon', linewidth=1.5, alpha=0.5, label='Past Edges')
             hist_node = mlines.Line2D([], [], color='lightsteelblue', marker='o', linestyle='None', markersize=5, alpha=0.5, label='Past Nodes')
             handles.extend([hist_edge, hist_node])
-            labels.extend(['Past Edges', 'Past Nodes'])
+            labels.extend(['Past Colliding Edges', 'Past Nodes'])
             
         # Add Bridge legend if active
         if current_anchors and any(a is not None for a in current_anchors):
@@ -97,3 +99,59 @@ class SamplerVisualizer:
         plt.xlabel("X Coordinate")
         plt.ylabel("Y Coordinate")
         plt.show()
+
+
+    def show_interactive_slider(self, b_name, history_log, prm_graph, conf, all_free_edges, checker, enhancer_name):
+        """
+        Creates and displays an interactive slider to scrub through the sampling history.
+        """
+        if not history_log:
+            print(f"\n--- No local sampling history recorded for {b_name} ---")
+            return
+            
+        print(f"\n--- Sampling History View: {b_name} ---")
+
+        # Plot function called whenever the slider is moved
+        def plot_sampling_step(current_call):
+            data = history_log[current_call]
+            seg = data.get('segment')
+            nodes = data.get('nodes')
+            anchors = data.get('bridge_anchors', None)
+            past_data = history_log[:current_call]
+            
+            # Filter edges based on the current point in time
+            max_allowed_node = conf["initialRoadmapSize"] + current_call * conf["updateRoadmapSize"]
+            timestamped_free_segs = []
+            
+            for u, v in all_free_edges:
+                u_valid = u < max_allowed_node if isinstance(u, int) else True
+                v_valid = v < max_allowed_node if isinstance(v, int) else True
+                
+                if u_valid and v_valid:
+                    pos_u = prm_graph.nodes[u]['pos']
+                    pos_v = prm_graph.nodes[v]['pos']
+                    timestamped_free_segs.append((pos_u, pos_v))
+            
+            # Call the class-specific plotting function
+            self.plot_sampling(
+                current_nodes=nodes, 
+                current_segment=seg, 
+                past_history=past_data, 
+                checker=checker,       
+                free_segments=timestamped_free_segs, 
+                title=f"LazyPRM {enhancer_name} ({b_name}) - Call {current_call + 1}",
+                current_anchors=anchors
+            )
+            
+        # Create the slider
+        samp_slider = widgets.IntSlider(
+            min=0, 
+            max=len(history_log) - 1, 
+            step=1, 
+            value=0, 
+            description='Enhance Call:'
+        )
+        
+        # Connect the slider to the plot function and display it
+        samp_out = widgets.interactive_output(plot_sampling_step, {'current_call': samp_slider})
+        display(samp_slider, samp_out)
