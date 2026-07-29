@@ -11,183 +11,155 @@ from matplotlib.lines import Line2D
 import networkx as nx
 from IPPerfMonitor import IPPerfMonitor
 
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
 
-def customPRMVisualize(planner, initialRoadmapSize, updateRoadmapSize, solution = [] , ax=None, nodeSize = 300):
-    graph = planner.graph.copy()
-    collChecker = planner._collisionChecker
-    collEdges = planner.collidingEdges
-    nonCollEdges = planner.nonCollidingEdges
-    collNodes = planner.collidingNodes
-    
-    # Get a list of positions of all nodes by returning the content of the attribute 'pos'
-    pos = nx.get_node_attributes(graph,'pos')
-    color = nx.get_node_attributes(graph,'color')
+def _get_node_phase(node_id, initialRoadmapSize, updateRoadmapSize):
+    """Calculates the sampling phase of a given node."""
+    if not isinstance(node_id, int) or node_id < initialRoadmapSize:
+        return 0
+    return 1 + (node_id - initialRoadmapSize) // updateRoadmapSize
 
-    collChecker.drawObstacles(ax)
+def _draw_evaluated_edges(planner, initialRoadmapSize, updateRoadmapSize, ax, max_phase=None):
+    """Draws colliding (red) and non-colliding (yellow) edges based on phase."""
+    collEdges = getattr(planner, 'collidingEdges', [])
+    nonCollEdges = getattr(planner, 'nonCollidingEdges', [])
     
-    # Draw graph edges
-    nx.draw_networkx_edges(graph, pos, ax = ax)
+    def edge_in_phase(u, v):
+        if max_phase is None: return True
+        return max(_get_node_phase(u, initialRoadmapSize, updateRoadmapSize),
+                   _get_node_phase(v, initialRoadmapSize, updateRoadmapSize)) <= max_phase
 
-    # Determine the phase of each node dynamically based on its integer ID
-    nodelist = list(pos.keys())
-    node_phases = []
-    
-    for node in nodelist:
-        if isinstance(node, int):
-            if node < initialRoadmapSize:
-                node_phases.append(0)  # Initial roadmap phase
-            else:
-                # Calculate the update phase (1, 2, 3, etc.) using integer division
-                phase = 1 + (node - initialRoadmapSize) // updateRoadmapSize
-                node_phases.append(phase)
-        else:
-            # Assign start, goal, or other non-integer nodes to phase 0
-            node_phases.append(0)
-            
-    # Draw graph nodes with color gradient representing the phases
-    cmap = plt.get_cmap('viridis')
-    
-    # Explicitly calculate min and max phases to map colors accurately for both plot and legend
-    vmin = min(node_phases) if node_phases else 0
-    vmax = max(node_phases) if node_phases else 1
-    
-    nx.draw_networkx_nodes(
-        graph, pos, ax=ax, 
-        nodelist=nodelist, 
-        node_color=node_phases, 
-        cmap=cmap,
-        vmin=vmin, 
-        vmax=vmax,
-        node_size=nodeSize
-    )
-
-    # Draw all connected components, emphasize the largest one
-    Gcc=(graph.subgraph(c) for c in nx.connected_components(graph))
-    G0=next(Gcc) # [0] = largest connected component
-    
-    if collEdges != []:
+    if collEdges:
         collGraph = nx.Graph()
-        collGraph.add_nodes_from(graph.nodes(data=True))
+        for u, v in collEdges:
+            if edge_in_phase(u, v):
+                pos_u = planner.graph.nodes[u]['pos'] if u in planner.graph.nodes else planner._getRandomPosition()
+                pos_v = planner.graph.nodes[v]['pos'] if v in planner.graph.nodes else planner._getRandomPosition()
+                collGraph.add_node(u, pos=pos_u)
+                collGraph.add_node(v, pos=pos_v)
+                collGraph.add_edge(u, v)
+        if collGraph.edges():
+            pos = nx.get_node_attributes(collGraph, 'pos')
+            nx.draw_networkx_edges(collGraph, pos, alpha=0.5, edge_color='r', width=3, ax=ax)
 
-        for i in collEdges:
-            collGraph.add_edge(i[0],i[1])
-        nx.draw_networkx_edges(collGraph,pos,alpha=0.2,edge_color='r',width=5)
-
-    if nonCollEdges != []:
+    if nonCollEdges:
         nonCollGraph = nx.Graph()
-        nonCollGraph.add_nodes_from(graph.nodes(data=True))
+        for u, v in nonCollEdges:
+            if edge_in_phase(u, v):
+                nonCollGraph.add_node(u, pos=planner.graph.nodes[u]['pos'])
+                nonCollGraph.add_node(v, pos=planner.graph.nodes[v]['pos'])
+                nonCollGraph.add_edge(u, v)
+        if nonCollGraph.edges():
+            pos = nx.get_node_attributes(nonCollGraph, 'pos')
+            nx.draw_networkx_edges(nonCollGraph, pos, alpha=0.8, edge_color='yellow', width=3, ax=ax)
 
-        for i in nonCollEdges:
-            nonCollGraph.add_edge(i[0],i[1])
-        nx.draw_networkx_edges(nonCollGraph,pos,alpha=0.8,edge_color='yellow',width=5)
-    
-    # Draw start and goal
-    if "start" in graph.nodes(): 
-        nx.draw_networkx_nodes(graph,pos,nodelist=["start"],
-                                   node_size=300,
-                                   node_color='#00dd00',  ax = ax)
-        nx.draw_networkx_labels(graph,pos,labels={"start": "S"},  ax = ax)
-
+def _draw_start_goal_solution(graph, pos, solution, ax):
+    """Draws the start node, goal node, and the final solution path."""
+    if "start" in graph.nodes():
+        nx.draw_networkx_nodes(graph, pos, nodelist=["start"], node_size=300, node_color='#00dd00', ax=ax)
+        nx.draw_networkx_labels(graph, pos, labels={"start": "S"}, ax=ax)
     if "goal" in graph.nodes():
-        nx.draw_networkx_nodes(graph,pos,nodelist=["goal"],
-                                   node_size=300,
-                                   node_color='#DD0000',  ax = ax)
-        nx.draw_networkx_labels(graph,pos,labels={"goal": "G"},  ax = ax)
+        nx.draw_networkx_nodes(graph, pos, nodelist=["goal"], node_size=300, node_color='#DD0000', ax=ax)
+        nx.draw_networkx_labels(graph, pos, labels={"goal": "G"}, ax=ax)
+    if solution and all(n in graph.nodes() for n in solution):
+        Gsp = nx.subgraph(graph, solution)
+        nx.draw_networkx_edges(Gsp, pos, alpha=0.8, edge_color='g', width=8, ax=ax)
 
-    if solution != []:
-        # Draw nodes based on solution path
-        Gsp = nx.subgraph(graph,solution)
-        # Draw edges based on solution path
-        nx.draw_networkx_edges(Gsp,pos,alpha=0.8,edge_color='g',width=10)
-    
+def _get_stats_text(planner):
+    """Extracts performance monitoring stats into a formatted string."""
     try:
         df = IPPerfMonitor.dataFrame()
-        
-        # Count calls based on function names inside the data frame
         node_checks = len(df[df['name'] == '_checkNodeForCollision']) if not df.empty else 0
         total_point_checks = len(df[df['name'] == 'pointInCollision']) if not df.empty else 0
         line_checks = len(df[df['name'] == 'lineInCollision']) if not df.empty else 0
-        
-        # Read the calculated planning time directly from the planPath execution entry
         plan_path_row = df[df['name'] == 'planPath']
         planning_time = plan_path_row['time'].values[0] if not plan_path_row.empty else 0.0
     except Exception:
-        # Fallback values if the data frame is empty or not accessible
-        total_point_checks, line_checks, planning_time = 0, 0, 0.0
+        total_point_checks, line_checks, node_checks, planning_time = 0, 0, 0, 0.0
 
-    # Get counts of discarded nodes/edges from internal lists
-    removed_nodes = len(collNodes)
-    removed_edges = len(collEdges)
-    free_edges = len(nonCollEdges)
-    points_on_lines = total_point_checks - node_checks  # Calculate the number of point checks on lines
-
-    # Combine stats and legend title into one string
-    legend_title_text = (
-        f"Collision Check Stats (Monitor):\n"
+    removed_nodes = len(getattr(planner, 'collidingNodes', []))
+    removed_edges = len(getattr(planner, 'collidingEdges', []))
+    free_edges = len(getattr(planner, 'nonCollidingEdges', []))
+    
+    return (
+        f"Collision Check Stats:\n"
         f"Node Checks: {node_checks}\n"
         f"Line Checks: {line_checks}\n"
-        f"Points on lines Checks: {points_on_lines}\n"
+        f"Points on lines Checks: {total_point_checks - node_checks}\n"
         f"Discarded Nodes: {removed_nodes}\n"
         f"Removed Edges: {removed_edges}\n"
         f"Free Edges: {free_edges}\n"
-        f"Planning Time: {planning_time:.4f}s\n"
-        f"----------------------------------------\n"
-        f"Phases"
+        f"Planning Time: {planning_time:.4f}s"
     )
-            
-    # --- COMBINED LEGEND AND STATS BOX ---
-    # Extract unique phases present in the graph
-    unique_phases = sorted(list(set(node_phases)))
+
+def _create_legend(ax, unique_phases, cmap, norm, title, extra_elements=None):
+    """Builds the dynamic legend (List vs. Colorbar) and adds it to the plot."""
+    legend_elements = list(extra_elements) if extra_elements else []
+    MAX_LEGEND_ENTRIES = 30
+
+    if len(unique_phases) <= MAX_LEGEND_ENTRIES:
+        if "Stats" in title:
+            title += "\n----------------------------------------\nPhases"
+        for phase in unique_phases:
+            label = "Initial Phase" if phase == 0 else f"Update Phase {phase}"
+            legend_elements.append(
+                Line2D([0], [0], marker='o', color='w', label=label, 
+                       markerfacecolor=cmap(norm(phase)), markersize=10, alpha=1.0)
+            )
+        if legend_elements:
+            leg = ax.legend(handles=legend_elements, loc='center right', bbox_to_anchor=(-0.05, 0.5), title=title)
+            leg.get_title().set_multialignment('left')
+    else:
+        leg = ax.legend(handles=legend_elements, loc='lower right', bbox_to_anchor=(-0.05, 0.5), title=title)
+        leg.get_title().set_multialignment('left')
+        
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cb_ax = ax.inset_axes([-0.23, 0.1, 0.02, 0.35]) 
+        cbar = ax.figure.colorbar(sm, cax=cb_ax, orientation='vertical')
+        cbar.ax.invert_yaxis()  # Achse umdrehen (von oben nach unten)
+        cbar.set_label('Phases (0 = Initial)')
+
+# =============================================================================
+# MAIN VISUALIZATION FUNCTIONS
+# =============================================================================
+
+def customPRMVisualize(planner, initialRoadmapSize, updateRoadmapSize, solution=[], ax=None, nodeSize=300):
+    if ax is None: ax = plt.gca()
+        
+    graph = planner.graph.copy()
+    pos = nx.get_node_attributes(graph, 'pos')
     
-    legend_elements = []
-    # Create a normalizer to fetch the exact same color NetworkX used for drawing
+    planner._collisionChecker.drawObstacles(ax)
+    nx.draw_networkx_edges(graph, pos, ax=ax)
+
+    all_nodes = list(graph.nodes())
+    node_phases = [_get_node_phase(n, initialRoadmapSize, updateRoadmapSize) for n in all_nodes]
+            
+    cmap = plt.get_cmap('viridis')
+    vmin, vmax = min(node_phases, default=0), max(node_phases, default=1)
     norm = plt.Normalize(vmin=vmin, vmax=vmax)
     
-    for phase in unique_phases:
-        # Generate the appropriate label
-        label = "Initial Phase" if phase == 0 else f"Update Phase {phase}"
-        # Fetch the exact color from the colormap using the normalized phase value
-        phase_color = cmap(norm(phase))
-        
-        # Add a placeholder marker for the legend
-        legend_elements.append(
-            Line2D([0], [0], marker='o', color='w', label=label, 
-                   markerfacecolor=phase_color, markersize=10)
-        )
-        
-    # Place the combined box outside the plot on the left side
-    if legend_elements:
-        leg = ax.legend(
-            handles=legend_elements, 
-            loc='center right', 
-            bbox_to_anchor=(-0.05, 0.5), 
-            title=legend_title_text
-        )
-        
-        # Ensure the multi-line title is aligned neatly to the left
-        leg.get_title().set_multialignment('left')
+    nx.draw_networkx_nodes(graph, pos, ax=ax, nodelist=all_nodes, node_color=node_phases, 
+                           cmap=cmap, vmin=vmin, vmax=vmax, node_size=nodeSize, alpha=1.0)
+
+    _draw_evaluated_edges(planner, initialRoadmapSize, updateRoadmapSize, ax)
+    _draw_start_goal_solution(graph, pos, solution, ax)
+    
+    stats_text = _get_stats_text(planner)
+    _create_legend(ax, sorted(list(set(node_phases))), cmap, norm, stats_text)
     
     return
 
 
 def animatePRMVisualize(planner, initialRoadmapSize, updateRoadmapSize, solution=[], ax=None, nodeSize=300, max_phase=None):
-    """
-    Dedicated visualization method for step-by-step animation of the PRM generation.
-    Accurately shows the chronological checking of edges based on their node IDs.
-    """
+    if ax is None: ax = plt.gca()
+
     base_graph = planner.graph
-
-    # Helper function to determine the sampling phase of a node based on its ID.
-    def get_node_phase(node_id):
-        if not isinstance(node_id, int):
-            return 0  # Start/goal nodes
-        if node_id < initialRoadmapSize:
-            return 0
-        return 1 + (node_id - initialRoadmapSize) // updateRoadmapSize
-
-    # Precompute the sampling phase for all nodes in the final roadmap.
     all_nodes = list(base_graph.nodes())
-    all_phases = [get_node_phase(n) for n in all_nodes]
+    all_phases = [_get_node_phase(n, initialRoadmapSize, updateRoadmapSize) for n in all_nodes]
 
     if max_phase is not None:
         allowed_nodes = [node for node, phase in zip(all_nodes, all_phases) if phase <= max_phase]
@@ -195,248 +167,60 @@ def animatePRMVisualize(planner, initialRoadmapSize, updateRoadmapSize, solution
         allowed_nodes = all_nodes
 
     graph = base_graph.subgraph(allowed_nodes).copy()
-    nodelist = list(graph.nodes())
-    node_phases = [get_node_phase(n) for n in nodelist]
-
-    collChecker = planner._collisionChecker
-    collEdges = planner.collidingEdges
-    nonCollEdges = planner.nonCollidingEdges
-    collNodes = planner.collidingNodes
-
     pos = nx.get_node_attributes(graph, 'pos')
+    nodelist = list(graph.nodes())
+    node_phases = [_get_node_phase(n, initialRoadmapSize, updateRoadmapSize) for n in nodelist]
 
-    collChecker.drawObstacles(ax)
-
-    # Draw all unchecked roadmap edges as a faint background.
+    planner._collisionChecker.drawObstacles(ax)
     nx.draw_networkx_edges(graph, pos, ax=ax, edge_color='gray', alpha=0.15, width=1.0)
 
     cmap = plt.get_cmap('viridis')
-
-    # Use fixed color limits so that node colors remain consistent
-    # when navigating through the animation.
-    vmin = min([get_node_phase(n) for n in planner.graph.nodes() if isinstance(n, int)], default=0)
-    vmax = max([get_node_phase(n) for n in planner.graph.nodes() if isinstance(n, int)], default=1)
-
-    nx.draw_networkx_nodes(
-        graph, pos, ax=ax,
-        nodelist=nodelist,
-        node_color=node_phases,
-        cmap=cmap,
-        vmin=vmin,
-        vmax=vmax,
-        node_size=nodeSize
-    )
-
-    # Draw checked edges in chronological order.
-    # An edge becomes visible as soon as both of its incident nodes
-    # have been generated.
-    if collEdges != []:
-        collGraph = nx.Graph()
-
-        for edge in collEdges:
-            u, v = edge[0], edge[1]
-            phase_u = get_node_phase(u)
-            phase_v = get_node_phase(v)
-
-            # Draw the edge only after its sampling phase has been reached.
-            # The edge history is preserved even if one of its nodes
-            # was removed later.
-            if (max_phase is None) or (max(phase_u, phase_v) <= max_phase):
-                collGraph.add_node(
-                    u,
-                    pos=planner.graph.nodes[u]['pos']
-                    if u in planner.graph.nodes
-                    else planner._getRandomPosition()
-                )
-                collGraph.add_node(
-                    v,
-                    pos=planner.graph.nodes[v]['pos']
-                    if v in planner.graph.nodes
-                    else planner._getRandomPosition()
-                )
-                collGraph.add_edge(u, v)
-
-        if len(collGraph.edges()) > 0:
-            edge_pos = nx.get_node_attributes(collGraph, 'pos')
-            nx.draw_networkx_edges(
-                collGraph,
-                edge_pos,
-                alpha=0.5,
-                edge_color='r',
-                width=3,
-                ax=ax
-            )
-
-    if nonCollEdges != []:
-        nonCollGraph = nx.Graph()
-
-        for edge in nonCollEdges:
-            u, v = edge[0], edge[1]
-            phase_u = get_node_phase(u)
-            phase_v = get_node_phase(v)
-
-            if (max_phase is None) or (max(phase_u, phase_v) <= max_phase):
-                nonCollGraph.add_node(u, pos=planner.graph.nodes[u]['pos'])
-                nonCollGraph.add_node(v, pos=planner.graph.nodes[v]['pos'])
-                nonCollGraph.add_edge(u, v)
-
-        if len(nonCollGraph.edges()) > 0:
-            edge_pos = nx.get_node_attributes(nonCollGraph, 'pos')
-            nx.draw_networkx_edges(
-                nonCollGraph,
-                edge_pos,
-                alpha=0.8,
-                edge_color='yellow',
-                width=3,
-                ax=ax
-            )
-
-    # Draw all rejected nodes as black crosses.
-    # Since their IDs are no longer available, they are shown
-    # permanently to indicate where sampling attempts failed.
-    if collNodes != []:
-        xs = [p[0] for p in collNodes]
-        ys = [p[1] for p in collNodes]
-        ax.scatter(xs, ys, c='black', marker='x', s=80, linewidths=2, zorder=5)
-
-    # Draw start and goal nodes.
-    if "start" in graph.nodes():
-        nx.draw_networkx_nodes(graph, pos, nodelist=["start"], node_size=300, node_color='#00dd00', ax=ax)
-        nx.draw_networkx_labels(graph, pos, labels={"start": "S"}, ax=ax)
-
-    if "goal" in graph.nodes():
-        nx.draw_networkx_nodes(graph, pos, nodelist=["goal"], node_size=300, node_color='#DD0000', ax=ax)
-        nx.draw_networkx_labels(graph, pos, labels={"goal": "G"}, ax=ax)
-
-    # Draw the final solution path if available.
-    if solution != [] and all(n in graph.nodes() for n in solution):
-        Gsp = nx.subgraph(graph, solution)
-        nx.draw_networkx_edges(Gsp, pos, alpha=0.8, edge_color='g', width=8, ax=ax)
-
-    # Build the legend.
-    unique_phases = sorted(list(set(all_phases)))
-    legend_elements = []
+    int_phases = [p for n, p in zip(all_nodes, all_phases) if isinstance(n, int)]
+    vmin, vmax = min(int_phases, default=0), max(int_phases, default=1)
     norm = plt.Normalize(vmin=vmin, vmax=vmax)
 
-    legend_elements.append(
-        Line2D([0], [0], color='gray', lw=1, alpha=0.5, label='Unchecked Edge')
-    )
-    legend_elements.append(
-        Line2D(
-            [0], [0],
-            marker='x',
-            color='w',
-            label='Destroyed Node',
-            markeredgecolor='black',
-            markersize=8,
-            markeredgewidth=2
-        )
-    )
+    nx.draw_networkx_nodes(graph, pos, ax=ax, nodelist=nodelist, node_color=node_phases, 
+                           cmap=cmap, vmin=vmin, vmax=vmax, node_size=nodeSize, alpha=1.0)
 
-    for phase in unique_phases:
-        label = "Initial Phase" if phase == 0 else f"Update Phase {phase}"
-        phase_color = cmap(norm(phase))
-        alpha_val = 1.0 if (max_phase is None or phase <= max_phase) else 0.2
+    _draw_evaluated_edges(planner, initialRoadmapSize, updateRoadmapSize, ax, max_phase)
 
-        legend_elements.append(
-            Line2D(
-                [0], [0],
-                marker='o',
-                color='w',
-                label=label,
-                markerfacecolor=phase_color,
-                markersize=10,
-                alpha=alpha_val
-            )
-        )
+    collNodes = getattr(planner, 'collidingNodes', [])
+    if collNodes:
+        xs, ys = zip(*collNodes)
+        ax.scatter(xs, ys, c='black', marker='x', s=80, linewidths=2, zorder=5)
 
-    if legend_elements:
-        leg = ax.legend(
-            handles=legend_elements,
-            loc='center right',
-            bbox_to_anchor=(-0.05, 0.5),
-            title="Animation Phases"
-        )
-        leg.get_title().set_multialignment('left')
+    _draw_start_goal_solution(graph, pos, solution, ax)
+
+    extra_elements = [
+        Line2D([0], [0], color='gray', lw=1, alpha=0.5, label='Unchecked Edge'),
+        Line2D([0], [0], marker='x', color='w', label='Destroyed Node', markeredgecolor='black', markersize=8, markeredgewidth=2)
+    ]
+    
+    _create_legend(ax, sorted(list(set(all_phases))), cmap, norm, "Animation Phases", extra_elements)
 
     return
 
 
-def lazyPRMVisualize(planner, solution = [] , ax=None, nodeSize = 300):
+def lazyPRMVisualize(planner, solution=[], ax=None, nodeSize=300):
+    if ax is None: ax = plt.gca()
+        
     graph = planner.graph.copy()
-    collChecker = planner._collisionChecker
-    collEdges = planner.collidingEdges
-    nonCollEdges = planner.nonCollidingEdges
-    # get a list of positions of all nodes by returning the content of the attribute 'pos'
-    pos = nx.get_node_attributes(graph,'pos')
-    color = nx.get_node_attributes(graph,'color')
+    pos = nx.get_node_attributes(graph, 'pos')
+    color = nx.get_node_attributes(graph, 'color')
 
-    collChecker.drawObstacles(ax)
+    planner._collisionChecker.drawObstacles(ax)
     
+    nx.draw_networkx_nodes(graph, pos, ax=ax, nodelist=list(color.keys()), node_color=list(color.values()), node_size=nodeSize)
+    nx.draw_networkx_edges(graph, pos, ax=ax)
 
-    # get a list of degrees of all nodes
-    #degree = nx.degree_centrality(graph)
-    
-    # draw graph
-    nx.draw_networkx_nodes(graph, pos, ax = ax, nodelist=list(color.keys()), node_color=list(color.values()), node_size=nodeSize)
-    nx.draw_networkx_edges(graph, pos, ax = ax)
+    try:
+        Gcc = (graph.subgraph(c) for c in nx.connected_components(graph))
+        G0 = next(Gcc)
+        nx.draw_networkx_edges(G0, pos, edge_color='b', width=3.0, style='dashed', alpha=0.5, ax=ax)
+    except StopIteration:
+        pass
 
-
-    
-    # draw all connected components, emphasize the largest one
-    Gcc=(graph.subgraph(c) for c in nx.connected_components(graph))
-    G0=next(Gcc) # [0] = largest connected component
-    
-    # how largest connected component
-    nx.draw_networkx_edges(G0,pos,
-                               edge_color='b',
-                               width=3.0, style='dashed',
-                               alpha=0.5,
-                            )
-    if collEdges != []:
-        collGraph = nx.Graph()
-        collGraph.add_nodes_from(graph.nodes(data=True))
-
-        #collGraph
-        for i in collEdges:
-            collGraph.add_edge(i[0],i[1])
-        nx.draw_networkx_edges(collGraph,pos,alpha=0.2,edge_color='r',width=5)
-
-
-    
-    if nonCollEdges != []:
-        nonCollGraph = nx.Graph()
-        nonCollGraph.add_nodes_from(graph.nodes(data=True))
-
-        #collGraph
-        for i in nonCollEdges:
-            nonCollGraph.add_edge(i[0],i[1])
-        nx.draw_networkx_edges(nonCollGraph,pos,alpha=0.8,edge_color='yellow',width=5)
-    
-
-
-    # draw start and goal
-    if "start" in graph.nodes(): 
-        nx.draw_networkx_nodes(graph,pos,nodelist=["start"],
-                                   node_size=300,
-                                   node_color='#00dd00',  ax = ax)
-        nx.draw_networkx_labels(graph,pos,labels={"start": "S"},  ax = ax)
-
-
-    if "goal" in graph.nodes():
-        nx.draw_networkx_nodes(graph,pos,nodelist=["goal"],
-                                   node_size=300,
-                                   node_color='#DD0000',  ax = ax)
-        nx.draw_networkx_labels(graph,pos,labels={"goal": "G"},  ax = ax)
-
-
-
-    if solution != []:
-        # draw nodes based on solution path
-        Gsp = nx.subgraph(graph,solution)
-        # draw edges based on solution path
-        nx.draw_networkx_edges(Gsp,pos,alpha=0.8,edge_color='g',width=10)
-    
-
+    _draw_evaluated_edges(planner, 0, 1, ax) # Dummy phase values, lazyPRM doesn't use phases
+    _draw_start_goal_solution(graph, pos, solution, ax)
     
     return
