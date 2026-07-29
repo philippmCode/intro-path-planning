@@ -65,6 +65,6 @@ BaseSampler <|-- CollidingEdgeSampler
 BaseSampler <|-- BridgeSampler
 
 ' Composition/Dependency relationships
-AbstractGraphPRM o--> BaseSampler : "enhancer (Strategy)"
+AbstractGraphPRM o--> BaseSampler : "enhancer"
 
 @enduml
