@@ -1,0 +1,70 @@
+@startuml architecture
+skinparam classAttributeIconSize 0
+
+class PRMBase {
+  # _getRandomPosition() : list
+  # _getRandomFreePosition() : list
+}
+
+class AbstractGraphPRM {
+  + graph : nx.Graph
+  + lastGeneratedNodeNumber : int
+  + collidingEdges : list
+  + nonCollidingEdges : list
+  + collidingNodes : list
+  + enhancementRounds : int
+  + enhancementNodesAdded : int
+  + enhancementStrategyName : str
+  --
+  + planPath(startList, goalList, config) : list
+  # _connect_nearest_neighbors(addedNodes, kNearest)
+  # _checkPathSegmentsForCollision(path) : bool
+  # _lazyCollisionCheck(path) : bool <<NotImplemented>>
+}
+
+class LazyPRM {
+  # _buildRoadmap(sampler, numNodes, kNearest) : int
+  # _checkNodeForCollision(nodeNumber) : bool
+  # _checkForCollisionAndUpdate(path) : bool
+  # _lazyCollisionCheck(path) : bool
+}
+
+class EarlyPRM {
+  # _buildRoadmap(sampler, numNodes, kNearest) : int
+  # _checkNodeForCollision(pos) : bool
+  # _lazyCollisionCheck(path) : bool
+}
+
+abstract class BaseSampler {
+  + history : list
+  --
+  + enhance(prm, numNodes, collision_segment) : list
+  # _is_in_limits(prm, pos) : bool
+}
+
+class UniformSampler {
+  + enhance(prm, numNodes, collision_segment) : list
+}
+
+class CollidingEdgeSampler {
+  + enhance(prm, numNodes, collision_segment) : list
+}
+
+class BridgeSampler {
+  + enhance(prm, numNodes, collision_segment) : list
+}
+
+' Inheritance relationships
+PRMBase <|-- AbstractGraphPRM
+AbstractGraphPRM <|-- LazyPRM
+AbstractGraphPRM <|-- EarlyPRM
+
+' Sampler Inheritance
+BaseSampler <|-- UniformSampler
+BaseSampler <|-- CollidingEdgeSampler
+BaseSampler <|-- BridgeSampler
+
+' Composition/Dependency relationships
+AbstractGraphPRM o--> BaseSampler : "enhancer (Strategy)"
+
+@enduml
