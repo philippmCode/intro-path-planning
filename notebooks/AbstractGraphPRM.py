@@ -96,7 +96,7 @@ class AbstractGraphPRM(PRMBase):
             config["initialRoadmapSize"] = 40 # number of nodes of first roadmap
             config["updateRoadmapSize"]  = 20 # number of nodes to add if there is no connection from start to end
             config["kNearest"] = 5 # number of nodes to connect to during setup
-            config["maxTime"] = 5.0 #  maximum planning time in seconds
+            config["maxTime"] = 1.0 #  maximum planning time in seconds
         """
 
         # 0. reset
@@ -124,7 +124,7 @@ class AbstractGraphPRM(PRMBase):
 
         # time based termination condition
         start_time = time.time()
-        max_time = config.get("maxTime", 5.0)  # Standardmäßig 5 Sekunden, falls nicht in config gesetzt
+        max_time = config.get("maxTime", 1.0)  # default to 1 second if not provided
 
         while (time.time() - start_time) < max_time:
             try:
