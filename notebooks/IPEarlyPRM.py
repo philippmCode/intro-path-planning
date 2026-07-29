@@ -1,13 +1,4 @@
 # coding: utf-8
-"""
-Task 4
-"""
-
-from IPPRMBase import PRMBase
-from scipy.spatial import cKDTree
-import networkx as nx
-import random
-import time
 
 from AbstractGraphPRM import AbstractGraphPRM
 from IPPerfMonitor import IPPerfMonitor

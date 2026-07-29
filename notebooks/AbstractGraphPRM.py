@@ -66,6 +66,10 @@ class AbstractGraphPRM(PRMBase):
         for elem in zip(path, path[1:]):
             x = elem[0]
             y = elem[1]
+
+            if (x, y) in self.nonCollidingEdges or (y, x) in self.nonCollidingEdges:
+                continue
+
             if self._collisionChecker.lineInCollision(self.graph.nodes()[x]['pos'], self.graph.nodes()[y]['pos']):
                 self.graph.remove_edge(x, y)
                 self.collidingEdges.append((x, y))
