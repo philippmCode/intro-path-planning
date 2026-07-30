@@ -56,4 +56,4 @@ We strictly rejected any code suggestions that were faulty or simply did not fit
 **4. Verification of functionality:**
 The core ideas and conceptual designs for the implemented algorithms were exclusively our own. No AI-generated code was blindly copy-pasted into the final submission. To trace and evaluate the algorithms effectively, we developed additional custom tools that operate primarily on a visual basis (e.g., `IPSamplerVisualizer.py`). Because these tools allow us to visually track the algorithms' behavior step-by-step, we could very quickly spot any inconsistencies or errors. Every accepted snippet was manually integrated, analyzed, and thoroughly validated thoroughly.
 
-Eric Schuber & Philipp Meyer
+Eric Schubert & Philipp Meyer
