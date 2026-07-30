@@ -150,3 +150,60 @@ benchList.append(Benchmark(
     description_square, 
     2
 ))
+
+
+# ---------------------------------------------------------
+# Z-Shaped Extreme Bottleneck (Curved Needle in a Haystack)
+extremeBottleneckField = dict()
+
+# To avoid overlapping polygons, the obstacles are constructed
+# from clean rectangular blocks.
+
+# 1. LEFT OBSTACLES (forming the left/upper boundary of the passage)
+
+# Wall to the left of the goal region
+extremeBottleneckField["left_goal_wall"] = Polygon([(0, 0), (4.5, 0), (4.5, 4.5), (0, 4.5)])
+
+# Wall to the left of the lower vertical passage
+# (also blocks the left side of the horizontal passage)
+extremeBottleneckField["left_bottom_tunnel"] = Polygon([(0, 4.5), (5.5, 4.5), (5.5, 14.5), (0, 14.5)])
+
+# Wall above the horizontal passage
+# and to the left of the upper vertical passage
+extremeBottleneckField["left_top_tunnel"] = Polygon([(0, 14.5), (17.5, 14.5), (17.5, 19.5), (0, 19.5)])
+
+# Wall to the left of the start region
+extremeBottleneckField["left_start_wall"] = Polygon([(0, 19.5), (16.5, 19.5), (16.5, 24), (0, 24)])
+
+# 2. RIGHT OBSTACLES (forming the right/lower boundary of the passage)
+
+# Wall to the right of the goal region
+extremeBottleneckField["right_goal_wall"] = Polygon([(7.5, 0), (24, 0), (24, 4.5), (7.5, 4.5)])
+
+# Wall to the right of the lower vertical passage
+# and below the horizontal passage
+extremeBottleneckField["right_bottom_tunnel"] = Polygon([(6.5, 4.5), (24, 4.5), (24, 13.5), (6.5, 13.5)])
+
+# Wall to the right of the upper vertical passage
+# (also blocks the right side of the horizontal passage)
+extremeBottleneckField["right_top_tunnel"] = Polygon([(18.5, 13.5), (24, 13.5), (24, 19.5), (18.5, 19.5)])
+
+# Wall to the right of the start region
+extremeBottleneckField["right_start_wall"] = Polygon([(19.5, 19.5), (24, 19.5), (24, 24), (19.5, 24)])
+
+description_extreme = (
+    "A Z-shaped extreme bottleneck. The passage is exactly 1.0 units wide "
+    "with sharp 90-degree turns. Built with exact rectangular bounds to "
+    "guarantee a valid path."
+)
+
+# Start is located in the upper-right region.
+# Goal is located in the lower-left region.
+benchList.append(Benchmark(
+    "Tiny Free Space",
+    CollisionChecker(extremeBottleneckField),
+    [[18, 21.5]],
+    [[6, 2.5]],
+    description_extreme,
+    2
+))
