@@ -99,6 +99,7 @@ class SamplerVisualizer:
         plt.xlabel("X Coordinate")
         plt.ylabel("Y Coordinate")
         plt.show()
+        plt.close(fig)
 
 
     def show_interactive_slider(self, b_name, history_log, prm_graph, conf, all_free_edges, checker, enhancer_name):
